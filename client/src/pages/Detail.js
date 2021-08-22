@@ -11,6 +11,8 @@ import {
 import { QUERY_PRODUCTS } from '../utils/queries';
 import spinner from '../assets/spinner.gif';
 import Cart from '../components/Cart';
+import { idbPromise } from "../utils/helpers";
+
 
 function Detail() {
   const [state, dispatch] = useStoreContext();
@@ -26,17 +28,31 @@ function Detail() {
   
   // hook checks if there's data in global state's product array
   useEffect(() => {
-    // if there is - figures out which product is the current one to display
+    // already in global store
     if (products.length) {
       setCurrentProduct(products.find(product => product._id === id));
-    } else if (data) {
-      // use the product data that we returned from the useQuery() Hook to set the product data to the global state object (dependency array)
+    } 
+    // retrieved from server
+    else if (data) {
       dispatch({
         type: UPDATE_PRODUCTS,
         products: data.products
       });
+  
+      data.products.forEach((product) => {
+        idbPromise('products', 'put', product);
+      });
     }
-  }, [products, data, dispatch, id]);
+    // get cache from idb
+    else if (!loading) {
+      idbPromise('products', 'get').then((indexedProducts) => {
+        dispatch({
+          type: UPDATE_PRODUCTS,
+          products: indexedProducts
+        });
+      });
+    }
+  }, [products, data, loading, dispatch, id]);
 
   const addToCart = () => {
     const itemInCart = cart.find((cartItem) => cartItem._id === id);
